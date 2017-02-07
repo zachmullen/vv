@@ -1,0 +1,5 @@
+name: Voxel visualizer
+version: 0.1.0
+npm:
+  dependencies:
+    shader-loader: 1.3.0
