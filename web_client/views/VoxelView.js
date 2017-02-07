@@ -9,6 +9,60 @@ import vshaderSource from '../shaders/vertex.glsl';
 import '../stylesheets/voxelVis.styl';
 
 const VoxelView = View.extend({
+    events: {
+        'mousedown .g-voxel-vis-canvas': function (e) {
+            this._dragStart = [e.clientX, e.clientY];
+        },
+        'mousemove .g-voxel-vis-canvas': function (e) {
+            var info = {
+                event: e,
+                delta: [
+                    e.clientX - this._dragStart[0],
+                    e.clientY - this._dragStart[1]
+                ]
+            };
+
+            e.preventDefault();
+
+            if (e.button === 0) {
+                this._dragRotate(info);
+            }
+            else if (e.button === 2) {
+                this._dragPan(info);
+            }
+
+            this._dragStart = [info.event.clientX, info.event.clientY];
+        },
+        'mouseup .g-voxel-vis-canvas': function () {
+            this._dragStart = null;
+        },
+        'mousewheel .g-voxel-vis-canvas': function (e) {
+            this._mouseWheel(e);
+        },
+        'DOMMouseScroll .g-voxel-vis-canvas': function (e) {
+            this._mouseWheel(e);
+        },
+        'contextmenu .g-voxel-vis-canvas': function (e) {
+            e.preventDefault();
+        }
+    },
+
+    _dragRotate: function (info) {
+        var dx = this.d2r(info.delta[0] / 3.0),
+            dy = this.d2r(info.delta[1] / 3.0);
+
+        this._xforms.rx += dx;
+        this._xforms.ry += dy;
+        this.draw(this.reader.getModel(), this.gl);
+    },
+
+    _mouseWheel: function (e) {
+        e.preventDefault();
+        var x = e.originalEvent.wheelDeltaY || e.originalEvent.detail;
+        this._xforms.tz += (x > 0 ? 1.0 : -1.0);
+        this.draw(this.reader.getModel(), this.gl);
+    },
+
     initialize: function () {
         this._ready = false;
         this._shouldRender = false;
@@ -69,35 +123,52 @@ const VoxelView = View.extend({
     },
 
     renderVoxels: function (model) {
+        this._xforms = {
+            tx: model.size.x * -0.5,
+            ty: model.size.y * -0.5,
+            tz: model.size.z * -1.5,
+            rx: 0.0,
+            ry: 0.0,
+            rz: 0.0
+        };
+
         var canvas = this.$('.g-voxel-vis-canvas')[0];
-        var gl = canvas.getContext('webgl');
-        this.shaderProgram = this._initShaders(gl);
+        this.gl = canvas.getContext('webgl');
+        this.shaderProgram = this._initShaders(this.gl);
 
-        gl.viewportWidth = canvas.width;
-        gl.viewportHeight = canvas.height;
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.enable(gl.DEPTH_TEST);
+        canvas.width = 941; // TODO
+        canvas.height = 400;
+        this.gl.viewportWidth = canvas.width;
+        this.gl.viewportHeight = canvas.height;
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.enable(this.gl.DEPTH_TEST);
 
-        this.computeBuffers(model, gl);
-        this.draw(gl);
+        this.computeBuffers(model, this.gl);
+        this.draw(model, this.gl);
     },
 
     d2r: function (deg) {
         return deg * (Math.PI / 180.0);
     },
 
-    draw: function (gl) {
+    draw: function (model, gl) {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         var mvMatrix = mat4.create();
         var pMatrix = mat4.create();
+        var xforms = this._xforms;
 
-        mat4.perspective(pMatrix, this.d2r(45.0), gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0);
+        mat4.perspective(pMatrix, this.d2r(60.0), gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0);
         mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, mvMatrix, [-70, -70, -180]);
-        mat4.rotate(mvMatrix, mvMatrix, this.d2r(60), [0, 1, 0]);
-        mat4.rotate(mvMatrix, mvMatrix, this.d2r(60), [0, 0, 1]);
+        mat4.translate(mvMatrix, mvMatrix, [
+            xforms.tx,
+            xforms.ty,
+            xforms.tz,
+        ]);
+        mat4.rotate(mvMatrix, mvMatrix, xforms.rx, [1, 0, 0]);
+        mat4.rotate(mvMatrix, mvMatrix, xforms.ry, [0, 1, 0]);
+        mat4.rotate(mvMatrix, mvMatrix, xforms.rz || 0, [0, 0, 1]);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.mesh);
         gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, this.mesh.itemSize, gl.FLOAT, false, 0, 0);
