@@ -35,7 +35,7 @@ export default class VoxReader {
                 this.modelInfo.rgba = child; // TODO read pallette into array (it's bounded to 256 elements)
             } else if (child.header === 'XYZI') {
                 this.modelInfo.nVoxels = new Uint32Array(child.content.buffer.slice(0, 4))[0];
-                this.modelInfo.voxels = new child.content.slice(4);
+                this.modelInfo.voxels = child.content.slice(4);
             }
         });
 
