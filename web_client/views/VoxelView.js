@@ -118,9 +118,12 @@ const VoxelView = View.extend({
         gl.enableVertexAttribArray(program.vertexPositionAttribute);
         program.vertexColorAttribute = gl.getAttribLocation(program, 'aVertexColor');
         gl.enableVertexAttribArray(program.vertexColorAttribute);
+        program.vertexNormalAttribute = gl.getAttribLocation(program, 'aVertexNormal');
+        gl.enableVertexAttribArray(program.vertexNormalAttribute);
 
         program.pMatrixUniform = gl.getUniformLocation(program, 'uPMatrix');
         program.mvMatrixUniform = gl.getUniformLocation(program, 'uMVMatrix');
+        program.nMatrixUniform = gl.getUniformLocation(program, 'uNormalMatrix');
 
         return program;
     },
@@ -173,22 +176,33 @@ const VoxelView = View.extend({
         mat4.rotate(mvMatrix, mvMatrix, xforms.ry, [0, 1, 0]);
         mat4.rotate(mvMatrix, mvMatrix, xforms.rz, [0, 0, 1]);
 
+        var normalMatrix = mat4.create();
+        mat4.invert(normalMatrix, mvMatrix);
+        mat4.transpose(normalMatrix, normalMatrix);
+
+        gl.uniformMatrix4fv(this.shaderProgram.nMatrixUniform, false, normalMatrix);
+        gl.uniformMatrix4fv(this.shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, mvMatrix);
+
         gl.bindBuffer(gl.ARRAY_BUFFER, this.mesh);
         gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, this.mesh.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.meshColors);
         gl.vertexAttribPointer(this.shaderProgram.vertexColorAttribute, this.meshColors.itemSize, gl.FLOAT, false, 0, 0);
 
-        gl.uniformMatrix4fv(this.shaderProgram.pMatrixUniform, false, pMatrix);
-        gl.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, mvMatrix);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+        gl.vertexAttribPointer(this.shaderProgram.vertexNormalAttribute, this.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
         gl.drawArrays(gl.TRIANGLES, 0, this.mesh.numItems);
     },
 
     computeBuffers: function (model, gl) {
         this.mesh = gl.createBuffer();
         this.meshColors = gl.createBuffer();
+        this.normalBuffer = gl.createBuffer();
 
         var vertices = []; // vertex buffer
+        var normals = [];  // normal buffer
         var colors = [];   // color buffer
 
         for (var i = 0; i < model.nVoxels; i++) {
@@ -252,8 +266,62 @@ const VoxelView = View.extend({
                 x + 1.0, y + 1.0, z + 1.0
             ];
 
+            var ns = [
+                // Bottom
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1,
+
+                // Top
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+
+                // Front
+                0, -1, 0,
+                0, -1, 0,
+                0, -1, 0,
+                0, -1, 0,
+                0, -1, 0,
+                0, -1, 0,
+
+                // Back
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+
+                // Left
+                -1, 0, 0,
+                -1, 0, 0,
+                -1, 0, 0,
+                -1, 0, 0,
+                -1, 0, 0,
+                -1, 0, 0,
+
+                // Right
+                1, 0, 0,
+                1, 0, 0,
+                1, 0, 0,
+                1, 0, 0,
+                1, 0, 0,
+                1, 0, 0
+            ];
+
             for (var v = 0; v < vs.length; v++) {
                 vertices.push(vs[v]);
+            }
+
+            for (var n = 0; n < ns.length; n++) {
+                normals.push(ns[n]);
             }
 
             var color = model.palette[model.voxels[4*i+3]];
@@ -275,6 +343,11 @@ const VoxelView = View.extend({
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
         this.meshColors.itemSize = 4;
         this.meshColors.numItems = colors.length / 4;
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+        this.normalBuffer.itemSize = 3;
+        this.normalBuffer.numItems = normals.length / 3;
     }
 });
 

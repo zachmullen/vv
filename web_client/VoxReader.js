@@ -304,6 +304,8 @@ export default class VoxReader {
                 this.modelInfo.nVoxels = new Uint32Array(child.content.buffer.slice(0, 4))[0];
                 this.modelInfo.voxels = child.content.slice(4);
             }
+
+            // TODO material properties
         });
         if (!this.modelInfo.palette) {
             this.modelInfo.palette = DEFAULT_PALETTE;
