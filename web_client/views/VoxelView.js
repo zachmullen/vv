@@ -14,6 +14,9 @@ const VoxelView = View.extend({
             this._dragStart = [e.clientX, e.clientY];
         },
         'mousemove .g-voxel-vis-canvas': function (e) {
+            if (!this._dragStart) {
+                return;
+            }
             var info = {
                 event: e,
                 delta: [
@@ -136,7 +139,7 @@ const VoxelView = View.extend({
         this.gl = canvas.getContext('webgl');
         this.shaderProgram = this._initShaders(this.gl);
 
-        canvas.width = 941; // TODO
+        canvas.width = 941; // TODO compute size dynamically
         canvas.height = 400;
         this.gl.viewportWidth = canvas.width;
         this.gl.viewportHeight = canvas.height;
@@ -168,7 +171,7 @@ const VoxelView = View.extend({
         ]);
         mat4.rotate(mvMatrix, mvMatrix, xforms.rx, [1, 0, 0]);
         mat4.rotate(mvMatrix, mvMatrix, xforms.ry, [0, 1, 0]);
-        mat4.rotate(mvMatrix, mvMatrix, xforms.rz || 0, [0, 0, 1]);
+        mat4.rotate(mvMatrix, mvMatrix, xforms.rz, [0, 0, 1]);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.mesh);
         gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, this.mesh.itemSize, gl.FLOAT, false, 0, 0);
@@ -189,11 +192,12 @@ const VoxelView = View.extend({
             vertices.push(model.voxels[4*i]);
             vertices.push(model.voxels[4*i+1]);
             vertices.push(model.voxels[4*i+2]);
-            // TODO lookup color in palette using index model.voxels[4*i+3]
-            colors.push(1.0);
-            colors.push(1.0);
-            colors.push(1.0);
-            colors.push(1.0);
+
+            var color = model.palette[model.voxels[4*i+3]];
+            colors.push(color[0] / 255.0);
+            colors.push(color[1] / 255.0);
+            colors.push(color[2] / 255.0);
+            colors.push(color[3] / 255.0);
         }
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.mesh);

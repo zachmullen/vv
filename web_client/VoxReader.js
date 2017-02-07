@@ -32,12 +32,21 @@ export default class VoxReader {
                     z: new Int32Array(child.content.buffer.slice(8, 12))[0]
                 }
             } else if (child.header === 'RGBA') {
-                this.modelInfo.rgba = child; // TODO read pallette into array (it's bounded to 256 elements)
+                this.modelInfo.palette = [];
+                for (var i = 0; i < child.content.length; i += 4) {
+                    this.modelInfo.palette.push([
+                        child.content[i],
+                        child.content[i+1],
+                        child.content[i+2],
+                        child.content[i+3]
+                    ]);
+                }
             } else if (child.header === 'XYZI') {
                 this.modelInfo.nVoxels = new Uint32Array(child.content.buffer.slice(0, 4))[0];
                 this.modelInfo.voxels = child.content.slice(4);
             }
         });
+        // TODO default palette if not set
 
         return this.modelInfo;
     }
