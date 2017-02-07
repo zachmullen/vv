@@ -140,7 +140,7 @@ const VoxelView = View.extend({
         this.shaderProgram = this._initShaders(this.gl);
 
         canvas.width = 941; // TODO compute size dynamically
-        canvas.height = 400;
+        canvas.height = 500;
         this.gl.viewportWidth = canvas.width;
         this.gl.viewportHeight = canvas.height;
         this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -162,7 +162,7 @@ const VoxelView = View.extend({
         var pMatrix = mat4.create();
         var xforms = this._xforms;
 
-        mat4.perspective(pMatrix, this.d2r(60.0), gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0);
+        mat4.perspective(pMatrix, this.d2r(50.0), gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0);
         mat4.identity(mvMatrix);
         mat4.translate(mvMatrix, mvMatrix, [
             xforms.tx,
@@ -181,23 +181,88 @@ const VoxelView = View.extend({
 
         gl.uniformMatrix4fv(this.shaderProgram.pMatrixUniform, false, pMatrix);
         gl.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, mvMatrix);
-        gl.drawArrays(gl.POINTS, 0, this.mesh.numItems);
+        gl.drawArrays(gl.TRIANGLES, 0, this.mesh.numItems);
     },
 
     computeBuffers: function (model, gl) {
         this.mesh = gl.createBuffer();
-        var vertices = [];
-        var colors = [];
+        this.meshColors = gl.createBuffer();
+
+        var vertices = []; // vertex buffer
+        var colors = [];   // color buffer
+
         for (var i = 0; i < model.nVoxels; i++) {
-            vertices.push(model.voxels[4*i]);
-            vertices.push(model.voxels[4*i+1]);
-            vertices.push(model.voxels[4*i+2]);
+            var x = model.voxels[4*i],
+                y = model.voxels[4*i+1],
+                z = model.voxels[4*i+2];
+
+            var vs = [
+                // Bottom
+                x, y, z,
+                x, y + 1.0, z,
+                x + 1.0, y, z,
+
+                x + 1.0, y, z,
+                x, y + 1.0, z,
+                x + 1.0, y + 1.0, z,
+
+                // Top
+                x, y, z + 1.0,
+                x, y + 1.0, z + 1.0,
+                x + 1.0, y, z + 1.0,
+
+                x + 1.0, y, z + 1.0,
+                x, y + 1.0, z + 1.0,
+                x + 1.0, y + 1.0, z + 1.0,
+
+                // Front
+                x, y, z,
+                x, y, z + 1.0,
+                x + 1.0, y, z,
+
+                x + 1.0, y, z,
+                x, y, z + 1.0,
+                x + 1.0, y, z + 1.0,
+
+                // Back
+                x, y + 1.0, z,
+                x, y + 1.0, z + 1.0,
+                x + 1.0, y + 1.0, z,
+
+                x + 1.0, y + 1.0, z,
+                x, y + 1.0, z + 1.0,
+                x + 1.0, y + 1.0, z + 1.0,
+
+                // Left
+                x, y, z,
+                x, y, z + 1.0,
+                x, y + 1.0, z,
+
+                x, y + 1.0, z,
+                x, y, z + 1.0,
+                x, y + 1.0, z + 1.0,
+
+                // Right
+                x + 1.0, y, z,
+                x + 1.0, y, z + 1.0,
+                x + 1.0, y + 1.0, z,
+
+                x + 1.0, y + 1.0, z,
+                x + 1.0, y, z + 1.0,
+                x + 1.0, y + 1.0, z + 1.0
+            ];
+
+            for (var v = 0; v < vs.length; v++) {
+                vertices.push(vs[v]);
+            }
 
             var color = model.palette[model.voxels[4*i+3]];
-            colors.push(color[0] / 255.0);
-            colors.push(color[1] / 255.0);
-            colors.push(color[2] / 255.0);
-            colors.push(color[3] / 255.0);
+            for (var c = 0; c < vs.length / 3; c++) {
+                colors.push(color[0] / 255.0);
+                colors.push(color[1] / 255.0);
+                colors.push(color[2] / 255.0);
+                colors.push(color[3] / 255.0);
+            }
         }
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.mesh);
@@ -205,7 +270,6 @@ const VoxelView = View.extend({
         this.mesh.itemSize = 3;
         this.mesh.numItems = vertices.length / 3;
 
-        this.meshColors = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.meshColors);
 
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
